@@ -1,48 +1,39 @@
-import os
-import json
-import requests
-import frontmatter
+from os import environ
+from requests import get, RequestException
+from frontmatter import loads
 from datetime import date, datetime
 from dotenv import load_dotenv
+from utils import load_json, save_json
 
 load_dotenv()
 
-BLOG_REPO = os.environ.get("BLOG_REPO", "suriyaakumar/portfolio")
-CONTENT_PATH = os.environ.get("CONTENT_PATH", "src/content/blog")
-BRANCH = os.environ.get("GITHUB_REF", "feat/portfolio_v2")
+BLOG_REPO = environ.get("BLOG_REPO", "suriyaakumar/portfolio")
+CONTENT_PATH = environ.get("CONTENT_PATH", "src/content/blog")
+BRANCH = environ.get("GITHUB_REF", "feat/portfolio_v2")
 REPO_API_URL = f"https://api.github.com/repos/{BLOG_REPO}/contents/{CONTENT_PATH}?ref={BRANCH}"
 
 CACHE_FILE = "cache_meta.json"
 CONTENT_FILE = "raw_posts.json"
 
 HEADERS = {
-    "Authorization": f"token {os.environ.get('GITHUB_TOKEN', '')}",
+     "Authorization": f"token {environ.get('GITHUB_TOKEN', '')}",
      "User-Agent": "blog-rag-eval/0.1 (suriyaakumar personal project)"
 }
 
 def get_remote_files():
     try:
-        response = requests.get(REPO_API_URL, headers=HEADERS, timeout=10)
+        response = get(REPO_API_URL, headers=HEADERS, timeout=10)
         response.raise_for_status()
         # Returns a list of files with 'name', 'path', 'sha', and 'download_url'
         return response.json()
-    except requests.RequestException as e:
+    except RequestException as e:
         print(f"Error fetching remote files: {e}")
         return []
 
-def load_json(path):
-    if os.path.exists(path):
-        with open(path, "r") as f:
-            return json.load(f)
-    return {}
-
-def save_json(path, data):
-    with open(path, "w") as f:
-        json.dump(data, f, indent=2)
 
 def parse_posts(raw_text):
     """Split frontmatter (title, date, tags, etc.) from the markdown body."""
-    post = frontmatter.loads(raw_text)
+    post = loads(raw_text)
     metadata = post.metadata
     for key,value in metadata.items():
         if isinstance(value, (date, datetime)):
@@ -74,9 +65,9 @@ def sync_posts():
         if name not in local_cache or local_cache[name] != remote_sha:
             print(f"[FETCHING] {name} (Changed or new)")
             try:
-                res = requests.get(download_url, headers=HEADERS, timeout=10)
+                res = get(download_url, headers=HEADERS, timeout=10)
                 res.raise_for_status()
-            except requests.RequestException as e:
+            except RequestException as e:
                 print(f"Error fetching {name}: {e}")
                 # keep old cached version if we have one, rather than losing it
                 if name in local_content:

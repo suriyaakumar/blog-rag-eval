@@ -1,24 +1,13 @@
-import json
-import re
+from re import compile, MULTILINE
+from utils import load_json, save_json
 
 CONTENT_FILE = "raw_posts.json"
 CHUNKS_FILE = "chunks.json"
 
 # Matches markdown headings: ## Heading, ### Heading, etc.
-HEADING_RE = re.compile(r"^(#{2,4})\s+(.*)$", re.MULTILINE)
+HEADING_RE = compile(r"^(#{2,4})\s+(.*)$", MULTILINE)
 
 MAX_CHUNK_CHARS = 1500  # fallback split size if a single section is too long
-
-
-def load_json(path):
-    with open(path, "r") as f:
-        return json.load(f)
-
-
-def save_json(path, data):
-    with open(path, "w") as f:
-        json.dump(data, f, indent=2)
-
 
 def split_by_headings(markdown_text):
     """Split markdown into (heading, section_text) pairs.
