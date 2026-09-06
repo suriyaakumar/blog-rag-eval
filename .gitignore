@@ -157,6 +157,17 @@ ENV/
 env.bak/
 venv.bak/
 
+# AWS Lambda build artifacts
+lambda_package/
+lambda_deployment.zip
+
+# JSON files resulting from the project
+raw_posts.json
+chunks.json
+embeddings.json
+cache_meta.json
+response.json
+
 # Spyder project settings
 .spyderproject
 .spyproject
