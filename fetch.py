@@ -9,7 +9,7 @@ load_dotenv()
 
 BLOG_REPO = environ.get("BLOG_REPO", "suriyaakumar/portfolio")
 CONTENT_PATH = environ.get("CONTENT_PATH", "src/content/blog")
-BRANCH = environ.get("BLOG_BRANCH", "feat/portfolio_v2")
+BRANCH = environ.get("BLOG_BRANCH", "master")
 
 REPO_API_URL = (
     f"https://api.github.com/repos/"
