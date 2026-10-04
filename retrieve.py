@@ -25,6 +25,7 @@ def get_top_chunks(question, top_k=3):
     embed_question = client.models.embed_content(
         model="gemini-embedding-001",
         contents=question,
+        config={"task_type": "RETRIEVAL_QUERY"},
     ).embeddings[0].values
 
     scores = []

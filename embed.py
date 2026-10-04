@@ -36,6 +36,7 @@ def embed_content():
                 result = client.models.embed_content(
                     model="gemini-embedding-001",
                     contents=chunk["text"],
+                    config={"task_type": "RETRIEVAL_DOCUMENT"},
                 )
                 chunk["embedding"] = result.embeddings[0].values
                 embedded += 1
