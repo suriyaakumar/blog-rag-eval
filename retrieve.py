@@ -6,6 +6,8 @@ import numpy as np
 
 load_dotenv()
 client = genai.Client(api_key=environ.get("GEMINI_API_KEY"))
+SIMILARITY_THRESHOLD = 0.60  # tune this against your own test set
+
 
 # cosine similarity function to compare two vectors
 # used in retrieve.py to find the most similar chunk of text to the user's question
@@ -18,7 +20,7 @@ def cosine_similarity(vec_a, vec_b):
     return dot_product / (norm_a * norm_b)
 
 
-def get_top_chunks(question, top_k=1):
+def get_top_chunks(question, top_k=3):
     embeddings = load_json("embeddings.json")
     embed_question = client.models.embed_content(
         model="gemini-embedding-001",
@@ -29,8 +31,8 @@ def get_top_chunks(question, top_k=1):
 
     for chunk in embeddings:
         score = cosine_similarity(embed_question, chunk["embedding"])
-        scores.append((score, chunk))
-
+        if score >= SIMILARITY_THRESHOLD:
+            scores.append((score, chunk))
     scores.sort(key=lambda x: x[0], reverse=True)
     return scores[:top_k]  # Get topmost k similar chunks since chunk count is less. will increase as blog posts increase XD
 
