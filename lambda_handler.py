@@ -12,6 +12,7 @@ KEY = "embeddings.json"
 client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 
 MAX_QUESTION_LENGTH = 500
+SIMILARITY_THRESHOLD = 0.60  # tune this against your own test set
 
 def load_embeddings_from_s3():
     response = s3.get_object(Bucket=BUCKET, Key=KEY)
@@ -24,16 +25,18 @@ def cosine_similarity(vec_a, vec_b):
     return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
 
 
-def get_top_chunks(question, embeddings, top_k=1):
+def get_top_chunks(question, embeddings, top_k=3):
     embed_question = client.models.embed_content(
         model="gemini-embedding-001",
         contents=question,
+        config={"task_type": "RETRIEVAL_QUERY"},
     ).embeddings[0].values
 
     scores = []
     for chunk in embeddings:
         score = cosine_similarity(embed_question, chunk["embedding"])
-        scores.append((score, chunk))
+        if score >= SIMILARITY_THRESHOLD:
+            scores.append((score, chunk))
 
     scores.sort(key=lambda x: x[0], reverse=True)
     return scores[:top_k]
