@@ -15,6 +15,7 @@ MAX_QUESTION_LENGTH = 500
 SIMILARITY_THRESHOLD = 0.60  # tune this against your own test set
 MAX_HISTORY_TURNS = 4
 MAX_HISTORY_CHARS = 1500
+GEN_MODEL = "gemini-3.1-flash-lite"
 
 
 def load_embeddings_from_s3():
@@ -74,7 +75,7 @@ Conversation:
 Follow-up: {question}
 
 Standalone question:"""
-    response = client.models.generate_content(model="gemini-3.1-flash-lite", contents=prompt)
+    response = client.models.generate_content(model=GEN_MODEL, contents=prompt)
     return response.text.strip()[:MAX_QUESTION_LENGTH] or question
 
 def build_prompt(question, chunks, history):
@@ -115,7 +116,7 @@ def lambda_handler(event, context):
     headers = event.get("headers", {})
     provided_secret = headers.get("x-app-secret") or headers.get("X-App-Secret")
 
-    if provided_secret != APP_SECRET:
+    if not APP_SECRET or provided_secret != APP_SECRET:
         return {
             "headers": {
                 "Content-Type": "application/json",
@@ -151,9 +152,21 @@ def lambda_handler(event, context):
     standalone = rewrite_query(question, history)
     top_chunks = get_top_chunks(standalone, embeddings, top_k=1)
 
+    # If no relevant chunks are found, return a default response indicating that the blog doesn't cover the topic.
+    # This prevents generating an answer based on unrelated or insufficient context.
+    if not top_chunks:
+        return {
+            "statusCode": 200,
+            "headers": {"Content-Type": "application/json"},
+            "body": json.dumps({
+                "answer": "The blog doesn't cover that.",
+                "sources": [],
+            }),
+        },
+
     prompt = build_prompt(question, top_chunks, history)
     response = client.models.generate_content(
-        model="gemini-3.1-flash-lite",
+        model=GEN_MODEL,
         contents=prompt,
     )
 
