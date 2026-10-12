@@ -3,6 +3,7 @@ import os
 import boto3
 import numpy as np
 from google import genai
+from google.genai.errors import ServerError
 
 s3 = boto3.client("s3")
 BUCKET = os.environ.get("EMBEDDINGS_BUCKET")
@@ -75,8 +76,12 @@ Conversation:
 Follow-up: {question}
 
 Standalone question:"""
-    response = client.models.generate_content(model=GEN_MODEL, contents=prompt)
-    return response.text.strip()[:MAX_QUESTION_LENGTH] or question
+    try:
+        response = client.models.generate_content(model=GEN_MODEL, contents=prompt)
+        return response.text.strip()[:MAX_QUESTION_LENGTH] or question
+    except ServerError as e:
+        print(f"Error rewriting query: {e}")
+        return question
 
 def build_prompt(question, chunks, history):
     context = "\n\n".join(
@@ -150,7 +155,7 @@ def lambda_handler(event, context):
 
     history = sanitize_history(body.get("history"))
     standalone = rewrite_query(question, history)
-    top_chunks = get_top_chunks(standalone, embeddings, top_k=1)
+    top_chunks = get_top_chunks(standalone, embeddings)
 
     # If no relevant chunks are found, return a default response indicating that the blog doesn't cover the topic.
     # This prevents generating an answer based on unrelated or insufficient context.
@@ -165,10 +170,22 @@ def lambda_handler(event, context):
         },
 
     prompt = build_prompt(question, top_chunks, history)
-    response = client.models.generate_content(
-        model=GEN_MODEL,
-        contents=prompt,
-    )
+    try:
+        response = client.models.generate_content(
+            model=GEN_MODEL,
+            contents=prompt,
+        )
+    except ServerError as e:
+        print(f"Error generating content: {e}")
+        return {
+            "statusCode": 500,
+            "headers": {"Content-Type": "application/json"},
+            "body": json.dumps({
+            "answer": "",
+            "sources": [],
+            "message": "MEMORY is temporarily unavailable. Please try again.",
+        }),
+        }
 
     return {
         "statusCode": 200,
