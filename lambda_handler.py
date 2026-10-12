@@ -2,7 +2,7 @@ import json
 import os
 import boto3
 import numpy as np
-from google import genai
+from google import genai, types
 from google.genai.errors import ServerError
 from time import perf_counter
 
@@ -12,12 +12,19 @@ APP_SECRET = os.environ.get("APP_SECRET")
 KEY = "embeddings.json"
 
 client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+rewriteConfig = types.GenerateContentConfig(
+    max_output_tokens=100,
+    thinking_config=types.ThinkingConfig(
+        thinking_level="minimal",
+    ),
+)
 
 MAX_QUESTION_LENGTH = 500
 SIMILARITY_THRESHOLD = 0.60  # tune this against your own test set
 MAX_HISTORY_TURNS = 4
 MAX_HISTORY_CHARS = 1500
 GEN_MODEL = "gemini-3.1-flash-lite"
+REWRITE_MODEL = "gemini-3.5-flash-lite"  # can be a smaller model if you want to save cost
 
 
 def load_embeddings_from_s3():
@@ -85,7 +92,7 @@ Follow-up: {question}
 
 Standalone question:"""
     try:
-        response = client.models.generate_content(model=GEN_MODEL, contents=prompt)
+        response = client.models.generate_content(model=REWRITE_MODEL, contents=prompt, config=rewriteConfig)
         return response.text.strip()[:MAX_QUESTION_LENGTH] or question
     except ServerError as e:
         print(f"Error rewriting query: {e}")
