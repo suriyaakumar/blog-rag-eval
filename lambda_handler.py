@@ -2,7 +2,8 @@ import json
 import os
 import boto3
 import numpy as np
-from google import genai, types
+from google import genai
+from google.genai import types
 from google.genai.errors import ServerError
 from time import perf_counter
 
