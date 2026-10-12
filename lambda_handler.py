@@ -32,12 +32,15 @@ def cosine_similarity(vec_a, vec_b):
 
 
 def get_top_chunks(question, embeddings, top_k=3):
+    t = perf_counter()
     embed_question = client.models.embed_content(
         model="gemini-embedding-001",
         contents=question,
         config={"task_type": "RETRIEVAL_QUERY"},
     ).embeddings[0].values
+    embedding_ms = (perf_counter() - t) * 1000
 
+    t = perf_counter()
     scores = []
     for chunk in embeddings:
         score = cosine_similarity(embed_question, chunk["embedding"])
@@ -45,6 +48,10 @@ def get_top_chunks(question, embeddings, top_k=3):
             scores.append((score, chunk))
 
     scores.sort(key=lambda x: x[0], reverse=True)
+    search_ms = (perf_counter() - t) * 1000
+
+    print(f"[LATENCY] embedding={embedding_ms:.0f}ms retrieval={search_ms:.0f}ms")
+
     return scores[:top_k]
 
 def sanitize_history(raw):
