@@ -4,6 +4,7 @@ import boto3
 import numpy as np
 from google import genai
 from google.genai.errors import ServerError
+from time import perf_counter
 
 s3 = boto3.client("s3")
 BUCKET = os.environ.get("EMBEDDINGS_BUCKET")
@@ -118,6 +119,7 @@ Current question:
 Answer:"""
 
 def lambda_handler(event, context):
+    total_start = perf_counter()
     headers = event.get("headers", {})
     provided_secret = headers.get("x-app-secret") or headers.get("X-App-Secret")
 
@@ -154,12 +156,26 @@ def lambda_handler(event, context):
     embeddings = load_embeddings_from_s3()
 
     history = sanitize_history(body.get("history"))
+
+    t = perf_counter()
     standalone = rewrite_query(question, history)
+    rewrite_ms = (perf_counter() - t) * 1000
+
+    t = perf_counter()
     top_chunks = get_top_chunks(standalone, embeddings)
+    retrieval_ms = (perf_counter() - t) * 1000
 
     # If no relevant chunks are found, return a default response indicating that the blog doesn't cover the topic.
     # This prevents generating an answer based on unrelated or insufficient context.
     if not top_chunks:
+        total_ms = (perf_counter() - total_start) * 1000
+        print(
+            f"[LATENCY] rewrite={rewrite_ms:.0f}ms "
+            f"retrieval={retrieval_ms:.0f}ms "
+            f"generation=0ms "
+            f"total={total_ms:.0f}ms"
+        )
+
         return {
             "statusCode": 200,
             "headers": {"Content-Type": "application/json"},
@@ -169,11 +185,25 @@ def lambda_handler(event, context):
             }),
         },
 
+    t = perf_counter()
     prompt = build_prompt(question, top_chunks, history)
+    prompt_ms = (perf_counter() - t) * 1000
+
     try:
+        t = perf_counter()
         response = client.models.generate_content(
             model=GEN_MODEL,
             contents=prompt,
+        )
+        generation_ms = (perf_counter() - t) * 1000
+        total_ms = (perf_counter() - total_start) * 1000
+
+        print(
+            f"[LATENCY] rewrite={rewrite_ms:.0f}ms "
+            f"retrieval={retrieval_ms:.0f}ms "
+            f"prompt={prompt_ms:.0f}ms "
+            f"generation={generation_ms:.0f}ms "
+            f"total={total_ms:.0f}ms"
         )
     except ServerError as e:
         print(f"Error generating content: {e}")
