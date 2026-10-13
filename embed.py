@@ -13,19 +13,34 @@ def hash_chunks(chunk):
     """Generate a SHA-256 hash for a chunk of text."""
     return sha256(chunk.encode("utf-8")).hexdigest()
 
+def build_embedding_text(chunk):
+    parts = []
+
+    if chunk.get("post_title"):
+        parts.append(chunk["post_title"])
+
+    if chunk.get("heading"):
+        parts.append(chunk["heading"])
+
+    parts.append(chunk["text"])
+
+    return "\n\n".join(parts)
+
+
 def embed_content():
     chunks = load_json("chunks.json")
     existing = load_json("embeddings.json", default=[])
 
      # build a lookup: text_hash -> already-embedded chunk
-    existing_by_hash = {hash_chunks(c["text"]): c for c in existing}
+    existing_by_hash = {hash_chunks(build_embedding_text(c)): c for c in existing}
 
     new_chunks = []
     reused = 0
     embedded = 0
 
     for chunk in chunks:
-        hash_chunk = hash_chunks(chunk["text"])
+        embed_content = build_embedding_text(chunk)
+        hash_chunk = hash_chunks(embed_content)
 
         if hash_chunk in existing_by_hash:
             # reuse the existing embedding
@@ -35,7 +50,7 @@ def embed_content():
             try:
                 result = client.models.embed_content(
                     model="gemini-embedding-001",
-                    contents=chunk["text"],
+                    contents=embed_content,
                     config={"task_type": "RETRIEVAL_DOCUMENT"},
                 )
                 chunk["embedding"] = result.embeddings[0].values
@@ -47,7 +62,8 @@ def embed_content():
                 sleep(30)
                 result = client.models.embed_content(
                     model="gemini-embedding-001",
-                    contents=chunk["text"],
+                    contents=embed_content,
+                    config={"task_type": "RETRIEVAL_DOCUMENT"},
                 )
                 chunk["embedding"] = result.embeddings[0].values
                 embedded += 1
