@@ -39,8 +39,8 @@ def embed_content():
     embedded = 0
 
     for chunk in chunks:
-        embed_content = build_embedding_text(chunk)
-        hash_chunk = hash_chunks(embed_content)
+        embed_text = build_embedding_text(chunk)
+        hash_chunk = hash_chunks(embed_text)
 
         if hash_chunk in existing_by_hash:
             # reuse the existing embedding
@@ -50,7 +50,7 @@ def embed_content():
             try:
                 result = client.models.embed_content(
                     model="gemini-embedding-001",
-                    contents=embed_content,
+                    contents=embed_text,
                     config={"task_type": "RETRIEVAL_DOCUMENT"},
                 )
                 chunk["embedding"] = result.embeddings[0].values
@@ -62,7 +62,7 @@ def embed_content():
                 sleep(30)
                 result = client.models.embed_content(
                     model="gemini-embedding-001",
-                    contents=embed_content,
+                    contents=embed_text,
                     config={"task_type": "RETRIEVAL_DOCUMENT"},
                 )
                 chunk["embedding"] = result.embeddings[0].values
